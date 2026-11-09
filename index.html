@@ -1,0 +1,1451 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Parallel vectors lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ===== Theme tokens (deep-lab palette) ===== */
+:root{
+  --bg:#eef1f6; --surface:#ffffff; --surface-2:#f3f5f9; --line:#d8dde7;
+  --grid:#edf0f5; --grid-major:#d6dbe5; --axis:#8a93a6;
+  --text:#171c27; --muted:#566079;
+  --p:#0279b8; --q:#b45f00; --r:#c8246a; --d:#6a3fe0; --u:#55627a;
+  --ok:#0b7a52; --bad:#b4410a;
+  --r-glow:rgba(200,36,106,.35);
+  --shadow:0 1px 2px rgba(20,28,45,.06), 0 8px 24px rgba(20,28,45,.06);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b0e14; --surface:#151a24; --surface-2:#1b2130; --line:#283043;
+    --grid:#161c28; --grid-major:#232b3b; --axis:#5f6a83;
+    --text:#e6e9ef; --muted:#8b93a7;
+    --p:#38bdf8; --q:#f59e0b; --r:#f472b6; --d:#a78bfa; --u:#9fb0c8;
+    --ok:#34d399; --bad:#fb923c;
+    --r-glow:rgba(244,114,182,.45);
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.25);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0b0e14; --surface:#151a24; --surface-2:#1b2130; --line:#283043;
+  --grid:#161c28; --grid-major:#232b3b; --axis:#5f6a83;
+  --text:#e6e9ef; --muted:#8b93a7;
+  --p:#38bdf8; --q:#f59e0b; --r:#f472b6; --d:#a78bfa; --u:#9fb0c8;
+  --ok:#34d399; --bad:#fb923c;
+  --r-glow:rgba(244,114,182,.45);
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.25);
+  color-scheme:dark;
+}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0;background:var(--bg);color:var(--text)}
+body{font-family:Inter,"Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 1,"cv11" 1}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--d);outline-offset:2px}
+
+/* MathJax colour classes (via \class) */
+.cp{color:var(--p);fill:var(--p)} .cq{color:var(--q);fill:var(--q)} .cr{color:var(--r);fill:var(--r)}
+.cd{color:var(--d);fill:var(--d)} .cu{color:var(--u);fill:var(--u)}
+mjx-container{color:inherit}
+mjx-container[display="true"]{margin:.35em 0 !important}
+body.mj-wait [data-mj]{visibility:hidden}
+.raw-tex{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.85em;color:var(--muted)}
+
+/* ===== Layout ===== */
+.app{display:grid;grid-template-columns:minmax(0,1fr) 450px;grid-template-areas:"stage head" "stage panel";grid-template-rows:auto 1fr;column-gap:20px;padding:16px;max-width:1680px;margin:0 auto}
+.masthead{grid-area:head;padding:6px 4px 14px}
+.masthead h1{font-size:1.55rem;line-height:1.2;font-weight:650;letter-spacing:-.015em;margin:0 0 .45rem}
+.masthead p{margin:0;color:var(--muted);max-width:60ch}
+.stage{grid-area:stage;position:sticky;top:calc(16px + env(safe-area-inset-top,0px));height:calc(100vh - 32px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));min-height:420px;background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:var(--shadow);touch-action:none;user-select:none;-webkit-user-select:none}
+@supports (height:100dvh){.stage{height:calc(100dvh - 32px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))}}
+.panel{grid-area:panel;min-width:0}
+
+@media (max-width:980px){
+  .app{grid-template-columns:minmax(0,1fr);grid-template-areas:"head" "stage" "panel";padding:12px}
+  .stage{position:relative;top:0;height:70vh;min-height:400px}
+  .panel{margin-top:16px}
+}
+
+/* ===== Graph ===== */
+#svg{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab}
+#svg.dragging{cursor:grabbing}
+#svg.over-handle{cursor:pointer}
+.gmin{stroke:var(--grid);stroke-width:1}
+.gmaj{stroke:var(--grid-major);stroke-width:1}
+.axis{stroke:var(--axis);stroke-width:1.4}
+.tick{fill:var(--muted);font-size:11px;font-family:Inter,system-ui,sans-serif}
+.el{transition:opacity .25s}
+.el.dim{opacity:.16}
+.vec line{stroke-linecap:round}
+.v-p line{stroke:var(--p)} .v-p path{fill:var(--p)}
+.v-q line{stroke:var(--q)} .v-q path{fill:var(--q)}
+.v-r line{stroke:var(--r)} .v-r path{fill:var(--r)}
+.v-d line{stroke:var(--d)} .v-d path{fill:var(--d)}
+.v-u line{stroke:var(--u)} .v-u path{fill:var(--u)}
+.v-ghost line{stroke:var(--d);opacity:.55} .v-ghost path{fill:var(--d);opacity:.55}
+.v-r.parallel{filter:drop-shadow(0 0 6px var(--r-glow))}
+.dline{stroke:var(--d);stroke-width:1.6;stroke-dasharray:7 6;opacity:.75}
+.locus{stroke:var(--q);stroke-width:1.6;stroke-dasharray:1.5 6;stroke-linecap:round;opacity:.9}
+.locus-dot{fill:var(--q);opacity:.55}
+.gap{stroke:var(--bad);stroke-width:2;stroke-dasharray:3 4}
+.arc{fill:none;stroke:var(--u);stroke-width:1.5}
+.sol-ring{fill:none;stroke:var(--r);stroke-width:2}
+.sol-ring.pulse{animation:pulse 1.6s ease-out 1}
+@keyframes pulse{0%{stroke-width:6;opacity:.2}60%{stroke-width:2;opacity:1}100%{stroke-width:2}}
+.origin{fill:var(--text)}
+.handle{stroke:var(--surface);stroke-width:2.5;transition:r .15s}
+.h-p{fill:var(--p)} .h-q{fill:var(--q)} .h-d{fill:var(--d)} .h-u{fill:var(--u)}
+.handle.hot{r:10}
+
+.labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.lbl{position:absolute;left:0;top:0;padding:1px 5px;border-radius:6px;background:color-mix(in srgb,var(--surface) 82%,transparent);font-size:15px;line-height:1;white-space:nowrap;transition:opacity .25s;will-change:transform}
+.lbl.dim{opacity:.18}
+.lbl-p{color:var(--p)} .lbl-q{color:var(--q)} .lbl-r{color:var(--r)} .lbl-d{color:var(--d)} .lbl-u{color:var(--u)} .lbl-muted{color:var(--muted);font-size:13px} .lbl-bad{color:var(--bad);font-size:13px}
+
+/* overlays */
+.readout{position:absolute;left:14px;top:14px;max-width:calc(100% - 28px - 150px);padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1px solid var(--line);pointer-events:none;display:grid;gap:4px;font-size:15px}
+.readout .row{min-height:22px;overflow:hidden}
+.readout .status{font-size:13px;padding:2px 8px;border-radius:999px;justify-self:start;border:1px solid currentColor}
+.status.ok{color:var(--ok)} .status.bad{color:var(--bad)}
+.toolbar{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.tgroup{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.tbtn{border:0;background:transparent;min-width:38px;height:36px;padding:0 10px;cursor:pointer;color:var(--muted);font-size:13px;font-weight:500;display:grid;place-items:center}
+.tbtn+.tbtn{border-left:1px solid var(--line)}
+.tbtn:hover{color:var(--text);background:var(--surface-2)}
+.tbtn[aria-pressed="true"]{color:var(--text);background:var(--surface-2);box-shadow:inset 0 -2px 0 var(--d)}
+.tbtn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.hint{position:absolute;left:50%;bottom:92px;transform:translateX(-50%);background:var(--text);color:var(--surface);font-size:13px;padding:7px 12px;border-radius:999px;pointer-events:none;transition:opacity .4s;white-space:nowrap;max-width:calc(100% - 24px);overflow:hidden;text-overflow:ellipsis}
+.hint.gone{opacity:0}
+.dock{position:absolute;left:12px;right:12px;bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;border-radius:14px;background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid var(--line)}
+.dock-lam{font-size:20px;color:var(--r)}
+.dock input[type=range]{flex:1 1 180px;min-width:140px;accent-color:var(--r);height:28px}
+.lam-out{min-width:92px;font-size:16px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:0 14px;height:40px;cursor:pointer;font-weight:550;font-size:14px;white-space:nowrap}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--r);border-color:var(--r);color:#fff}
+.btn.primary:hover{filter:brightness(1.07);background:var(--r)}
+:root[data-theme="dark"] .btn.primary{color:#1a0b14}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn.primary{color:#1a0b14}}
+.btn.small{height:34px;padding:0 11px;font-size:13px}
+.check{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap}
+.check input{width:17px;height:17px;accent-color:var(--r);margin:0}
+
+@media (max-width:560px){
+  .readout{max-width:calc(100% - 24px - 50px);font-size:13px;left:10px;top:10px;padding:8px 10px}
+  .toolbar .tgroup.opts{display:none}
+  .dock{gap:6px 10px;padding:8px 10px}
+  .dock input[type=range]{flex:1 1 100px;min-width:90px}
+  .lam-out{display:none}
+  .dock .btn.primary{height:36px;padding:0 12px}
+  .check{font-size:12px}
+  .hint{bottom:104px;font-size:12px}
+}
+
+/* ===== Panel ===== */
+.block{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 16px 14px;box-shadow:var(--shadow)}
+.block h2{font-size:.95rem;font-weight:650;margin:0 0 10px;letter-spacing:-.005em}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.chip{border:1px solid var(--line);background:var(--surface-2);border-radius:999px;padding:5px 11px;font-size:13px;cursor:pointer;min-height:34px;display:inline-flex;align-items:center;gap:4px}
+.chip:hover{border-color:var(--muted)}
+.chip[aria-pressed="true"]{border-color:var(--d);background:color-mix(in srgb,var(--d) 12%,var(--surface))}
+.vrow{display:grid;grid-template-columns:14px auto minmax(0,1fr) auto minmax(0,1fr) auto;align-items:center;gap:8px;margin:7px 0}
+.vrow .m{white-space:nowrap;font-size:16px}
+.sw{width:12px;height:12px;border-radius:3px}
+.sw-p{background:var(--p)} .sw-q{background:var(--q)} .sw-d{background:var(--d)} .sw-u{background:var(--u)}
+.num-in{width:100%;min-width:0;height:38px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);padding:0 10px;font-size:15px;text-align:center;font-variant-numeric:tabular-nums}
+.num-in:focus{border-color:var(--d);outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--d) 25%,transparent)}
+.num-in.invalid{border-color:var(--bad);box-shadow:0 0 0 3px color-mix(in srgb,var(--bad) 20%,transparent)}
+.err{color:var(--bad);font-size:13px;margin:6px 0 0;min-height:0}
+.err:empty{display:none}
+.key{list-style:none;margin:14px 0 0;padding:12px 0 0;border-top:1px solid var(--line);display:grid;gap:6px;font-size:13px;color:var(--muted)}
+.key li{display:grid;grid-template-columns:34px 1fr;align-items:center;gap:8px}
+.key > li > svg{width:34px;height:12px;overflow:visible}
+.nw{white-space:nowrap}
+
+.tabs{display:flex;gap:4px;margin:18px 0 0;border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{border:0;background:none;padding:10px 12px;font-size:14px;font-weight:550;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--text);border-bottom-color:var(--r)}
+.tabpanel{padding-top:14px}
+
+.answer{border:1px solid var(--line);border-left:4px solid var(--r);border-radius:12px;background:var(--surface);padding:12px 14px;margin-bottom:12px}
+.answer .big{font-size:20px}
+.answer .sub{color:var(--muted);font-size:14px;margin-top:2px;overflow-x:auto}
+.answer.warn{border-left-color:var(--bad)}
+.step-tools{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.steps{list-style:none;margin:0;padding:0;display:grid;gap:8px;counter-reset:s}
+.step{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.step[hidden]{display:none}
+.step.reveal{animation:reveal .35s ease-out}
+@keyframes reveal{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.step-head{all:unset;box-sizing:border-box;display:grid;grid-template-columns:26px 1fr auto;gap:10px;align-items:center;width:100%;padding:10px 12px;cursor:pointer;font-weight:600;font-size:14px}
+.step-head:focus-visible{outline:2px solid var(--d);outline-offset:-2px}
+.step-head .n{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--surface-2);border:1px solid var(--line);font-size:12px;font-weight:650;color:var(--muted)}
+.step-head .eye{font-size:12px;font-weight:500;color:var(--muted)}
+.step.active{border-color:var(--d)}
+.step.active .n{background:var(--d);border-color:var(--d);color:var(--surface)}
+.step-body{padding:0 14px 12px 48px}
+.step-body p{margin:0 0 4px;color:var(--muted);font-size:14px}
+.mblock{overflow-x:auto;overflow-y:hidden;padding:2px 0}
+.next-row{margin-top:10px}
+
+.why-intro p, .prac p{margin:0 0 8px;font-size:14px;color:var(--muted)}
+.callout{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:10px 0}
+.callout .mblock{font-size:15px}
+.verdict{font-weight:600;font-size:14px;margin:8px 0 2px;display:flex;align-items:center;gap:8px}
+.verdict.ok{color:var(--ok)} .verdict.bad{color:var(--bad)}
+.btn-row{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.qcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;font-size:15px;line-height:1.7;margin:0 0 10px}
+.ans-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ans-row .num-in{width:140px}
+.fb{margin-top:10px;font-size:14px}
+.fb.ok{color:var(--ok)} .fb.bad{color:var(--bad)}
+.score{font-size:13px;color:var(--muted)}
+.foot{color:var(--muted);font-size:12px;margin:18px 4px 4px}
+
+@media (prefers-reduced-motion: reduce){
+  *{animation:none !important;transition:none !important}
+}
+</style>
+<script>
+  window.MathJax = {
+    loader: { load: ['[tex]/html'] },
+    tex: { packages: { '[+]': ['html'] }, inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+    svg: { fontCache: 'local' },
+    options: { enableMenu: false },
+    startup: {
+      typeset: false,
+      ready: () => {
+        MathJax.startup.defaultReady();
+        MathJax.startup.promise.then(() => { if (window.__onMathReady) window.__onMathReady(); });
+      }
+    }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js" async></script>
+</head>
+<body class="mj-wait">
+<div class="app">
+  <header class="masthead" data-mj>
+    <h1>When is \(\class{cr}{\mathbf{p}+\lambda\mathbf{q}}\) parallel to <span class="nw">\(\class{cd}{\mathbf{d}}\)?</span></h1>
+    <p>Edexcel A level Mechanics, vectors. Drag the arrow tips, slide \(\lambda\), and follow the working one step at a time.</p>
+  </header>
+
+  <section class="stage" id="stage" aria-label="Interactive vector graph">
+    <svg id="svg" role="img" aria-label="Graph of p, q, lambda q, p plus lambda q and the direction d">
+      <g id="gGrid"></g><g id="gLines"></g><g id="gVecs"></g><g id="gHandles"></g>
+    </svg>
+    <div class="labels" id="labels" aria-hidden="true"></div>
+    <div class="readout" id="readout">
+      <div class="row" id="roLam"></div>
+      <div class="row" id="roVec"></div>
+      <div class="row status" id="roStatus"></div>
+    </div>
+    <div class="toolbar">
+      <div class="tgroup">
+        <button class="tbtn" id="zoomIn" aria-label="Zoom in"><svg viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></button>
+        <button class="tbtn" id="zoomOut" aria-label="Zoom out"><svg viewBox="0 0 16 16"><path d="M3 8h10"/></svg></button>
+        <button class="tbtn" id="fitBtn">Fit</button>
+      </div>
+      <div class="tgroup opts">
+        <button class="tbtn" id="optSnap" aria-pressed="true" title="Snap dragged tips to whole numbers">Snap</button>
+        <button class="tbtn" id="optLocus" aria-pressed="true" title="Show every possible tip of p + λq">Path</button>
+        <button class="tbtn" id="optLabels" aria-pressed="true">Labels</button>
+      </div>
+    </div>
+    <div class="hint" id="hint">Drag the dots at the arrow tips. Drag empty space to pan; scroll or pinch to zoom.</div>
+    <div class="dock" data-mj>
+      <label for="lam" class="dock-lam">\(\lambda\)</label>
+      <input type="range" id="lam" min="-5" max="5" step="0.01" value="0" aria-label="lambda">
+      <div class="lam-out" id="lamOut"></div>
+      <button class="btn primary" id="solveBtn">Solve for \(\lambda\)</button>
+      <label class="check"><input type="checkbox" id="follow" checked> Follow the solution</label>
+    </div>
+  </section>
+
+  <aside class="panel">
+    <section class="block" aria-labelledby="hVec" data-mj>
+      <h2 id="hVec">Vectors</h2>
+      <div class="chips" id="presets" role="group" aria-label="Examples">
+        <button class="chip" data-preset="a">(a) parallel to \(\mathbf{j}\)</button>
+        <button class="chip" data-preset="b">(b) parallel to \(\mathbf{i}+\mathbf{j}\)</button>
+        <button class="chip" data-preset="neg">Points the opposite way</button>
+        <button class="chip" data-preset="none">No solution</button>
+        <button class="chip" data-preset="rand">Random</button>
+      </div>
+      <div class="vrow"><span class="sw sw-p"></span><span class="m">\(\class{cp}{\mathbf{p}} =\)</span><input class="num-in" id="px" inputmode="decimal" aria-label="i component of p"><span class="m">\(\mathbf{i}\;+\)</span><input class="num-in" id="py" inputmode="decimal" aria-label="j component of p"><span class="m">\(\mathbf{j}\)</span></div>
+      <div class="vrow"><span class="sw sw-q"></span><span class="m">\(\class{cq}{\mathbf{q}} =\)</span><input class="num-in" id="qx" inputmode="decimal" aria-label="i component of q"><span class="m">\(\mathbf{i}\;+\)</span><input class="num-in" id="qy" inputmode="decimal" aria-label="j component of q"><span class="m">\(\mathbf{j}\)</span></div>
+      <div class="vrow"><span class="sw sw-d"></span><span class="m">\(\class{cd}{\mathbf{d}} =\)</span><input class="num-in" id="dx" inputmode="decimal" aria-label="i component of the direction d"><span class="m">\(\mathbf{i}\;+\)</span><input class="num-in" id="dy" inputmode="decimal" aria-label="j component of the direction d"><span class="m">\(\mathbf{j}\)</span></div>
+      <p class="err" id="err" role="alert"></p>
+      <ul class="key">
+        <li><svg viewBox="0 0 34 12"><line x1="1" y1="6" x2="33" y2="6" style="stroke:var(--r);stroke-width:4;stroke-linecap:round"/></svg><span>\(\class{cr}{\mathbf{p}+\lambda\mathbf{q}}\), drawn from the origin</span></li>
+        <li><svg viewBox="0 0 34 12"><line x1="1" y1="6" x2="33" y2="6" style="stroke:var(--q);stroke-width:2.5;stroke-dasharray:6 4"/></svg><span>\(\class{cq}{\lambda\mathbf{q}}\), added on to the tip of \(\class{cp}{\mathbf{p}}\)</span></li>
+        <li><svg viewBox="0 0 34 12"><line x1="1" y1="6" x2="33" y2="6" style="stroke:var(--q);stroke-width:2;stroke-dasharray:1.5 5;stroke-linecap:round"/></svg><span>Every possible tip of \(\class{cr}{\mathbf{p}+\lambda\mathbf{q}}\) (dots at whole-number \(\lambda\))</span></li>
+        <li><svg viewBox="0 0 34 12"><line x1="1" y1="6" x2="33" y2="6" style="stroke:var(--d);stroke-width:2;stroke-dasharray:7 5"/></svg><span>Every vector parallel to \(\class{cd}{\mathbf{d}}\) lies along this line</span></li>
+      </ul>
+    </section>
+
+    <div class="tabs" role="tablist" aria-label="Views">
+      <button class="tab" role="tab" id="t-sol" aria-controls="p-sol" aria-selected="true">Step-by-step solution</button>
+      <button class="tab" role="tab" id="t-why" aria-controls="p-why" aria-selected="false" tabindex="-1">Why others aren’t parallel</button>
+      <button class="tab" role="tab" id="t-prac" aria-controls="p-prac" aria-selected="false" tabindex="-1">Practice</button>
+    </div>
+
+    <section class="tabpanel" id="p-sol" role="tabpanel" aria-labelledby="t-sol">
+      <div class="answer" id="answer"></div>
+      <div class="step-tools">
+        <button class="btn small" id="stepAll">Show all steps</button>
+        <button class="btn small" id="stepOne">One step at a time</button>
+      </div>
+      <ol class="steps" id="steps"></ol>
+      <div class="next-row"><button class="btn primary" id="nextStep" hidden>Next step</button></div>
+      <p class="foot">Tap a step to highlight the matching part of the graph.</p>
+    </section>
+
+    <section class="tabpanel" id="p-why" role="tabpanel" aria-labelledby="t-why" hidden>
+      <div class="why-intro" data-mj>
+        <p>Two vectors are parallel when one is a scalar multiple of the other:</p>
+        <div class="callout"><div class="mblock">\[\class{cu}{\mathbf{u}} \parallel \class{cd}{\mathbf{d}} \iff \class{cu}{\mathbf{u}} = k\,\class{cd}{\mathbf{d}} \text{ for one number } k\]</div></div>
+        <p>The same \(k\) has to scale the \(\mathbf{i}\)-component and the \(\mathbf{j}\)-component. Change \(\class{cu}{\mathbf{u}}\) below or drag its grey tip on the graph and watch whether one \(k\) can do both jobs.</p>
+        <div class="vrow"><span class="sw sw-u"></span><span class="m">\(\class{cu}{\mathbf{u}} =\)</span><input class="num-in" id="ux" inputmode="decimal" aria-label="i component of u"><span class="m">\(\mathbf{i}\;+\)</span><input class="num-in" id="uy" inputmode="decimal" aria-label="j component of u"><span class="m">\(\mathbf{j}\)</span></div>
+        <div class="btn-row">
+          <button class="btn small" id="uScale">Make \(\class{cu}{\mathbf{u}} = 3\class{cd}{\mathbf{d}}\)</button>
+          <button class="btn small" id="uNudge">Nudge \(\class{cu}{\mathbf{u}}\) off the line</button>
+          <button class="btn small" id="uWrong">Use a wrong \(\lambda\)</button>
+        </div>
+      </div>
+      <div id="whyOut"></div>
+    </section>
+
+    <section class="tabpanel prac" id="p-prac" role="tabpanel" aria-labelledby="t-prac" hidden>
+      <p>Questions in the same style as the textbook example. Answer as a whole number, a fraction like -1/8, or a decimal.</p>
+      <div class="qcard" id="qcard"></div>
+      <div class="ans-row" data-mj>
+        <label for="ansIn" style="font-size:18px">\(\lambda =\)</label>
+        <input class="num-in" id="ansIn" inputmode="decimal" autocomplete="off" aria-label="Your value of lambda">
+        <button class="btn primary" id="checkBtn">Check answer</button>
+      </div>
+      <div class="fb" id="fb" aria-live="polite"></div>
+      <div class="fb" id="hintOut"></div>
+      <div class="btn-row">
+        <button class="btn small" id="hintBtn">Show a hint</button>
+        <button class="btn small" id="showSolBtn">Show worked solution</button>
+        <button class="btn small" id="newQBtn">New question</button>
+      </div>
+      <p class="score" id="score"></p>
+    </section>
+  </aside>
+</div>
+
+<script>
+(() => {
+'use strict';
+/* ============================================================
+   Exact fraction arithmetic
+   ============================================================ */
+function gcd(a, b) { a = Math.abs(a); b = Math.abs(b); while (b) { const t = a % b; a = b; b = t; } return a; }
+class Fr {
+  constructor(n, d = 1) {
+    if (d === 0) throw new Error('Division by zero');
+    if (d < 0) { n = -n; d = -d; }
+    const g = gcd(n, d) || 1;
+    this.n = n / g; this.d = d / g;
+    if (this.n === 0) { this.n = 0; this.d = 1; }
+  }
+  static of(x) { return x instanceof Fr ? x : new Fr(x, 1); }
+  add(o) { o = Fr.of(o); return new Fr(this.n * o.d + o.n * this.d, this.d * o.d); }
+  sub(o) { o = Fr.of(o); return new Fr(this.n * o.d - o.n * this.d, this.d * o.d); }
+  mul(o) { o = Fr.of(o); return new Fr(this.n * o.n, this.d * o.d); }
+  div(o) { o = Fr.of(o); return new Fr(this.n * o.d, this.d * o.n); }
+  neg() { return new Fr(-this.n, this.d); }
+  abs() { return new Fr(Math.abs(this.n), this.d); }
+  isZero() { return this.n === 0; }
+  isOne() { return this.n === 1 && this.d === 1; }
+  eq(o) { o = Fr.of(o); return this.n === o.n && this.d === o.d; }
+  val() { return this.n / this.d; }
+  tex() { return this.d === 1 ? String(this.n) : (this.n < 0 ? '-' : '') + '\\frac{' + Math.abs(this.n) + '}{' + this.d + '}'; }
+  plain() { return this.d === 1 ? String(this.n) : this.n + '/' + this.d; }
+}
+const F = (n, d = 1) => new Fr(n, d);
+function parseFr(s) {
+  s = String(s).trim().replace(/\u2212/g, '-').replace(/\s+/g, '');
+  if (s === '') return null;
+  let m = s.match(/^([+-]?\d{1,6})\/(\d{1,6})$/);
+  if (m) { const d = +m[2]; return d === 0 ? null : F(+m[1], d); }
+  m = s.match(/^([+-]?)(\d{0,6})(?:\.(\d{0,4}))?$/);
+  if (m && (m[2] || m[3])) {
+    const dec = m[3] || '';
+    const n = parseInt((m[2] || '0') + dec, 10) * (m[1] === '-' ? -1 : 1);
+    return F(n, 10 ** dec.length);
+  }
+  return null;
+}
+const frFromNum = (x, snap) => snap ? F(Math.round(x)) : F(Math.round(x * 10), 10);
+
+/* ============================================================
+   TeX helpers
+   ============================================================ */
+const I = '\\mathbf{i}', J = '\\mathbf{j}', LAM = '\\lambda';
+const C = (cls, t) => '\\class{' + cls + '}{' + t + '}';
+const P = C('cp', '\\mathbf{p}'), Q = C('cq', '\\mathbf{q}'), D = C('cd', '\\mathbf{d}'), U = C('cu', '\\mathbf{u}');
+const LQ = C('cq', '\\lambda\\mathbf{q}'), R = C('cr', '\\mathbf{p}+\\lambda\\mathbf{q}');
+const coefBody = (a, s) => (a.isOne() ? s : a.tex() + s);
+
+function joinTerms(terms) {
+  let out = '';
+  for (const t of terms) {
+    if (t.raw) { out += out === '' ? t.raw : ' + ' + t.raw; continue; }
+    if (!t.c || t.c.isZero()) continue;
+    const neg = t.c.n < 0, a = t.c.abs();
+    const body = t.s ? coefBody(a, t.s) : a.tex();
+    out += out === '' ? (neg ? '-' : '') + body : (neg ? ' - ' : ' + ') + body;
+  }
+  return out || '0';
+}
+const vecTex = (x, y) => { const s = joinTerms([{ c: x, s: I }, { c: y, s: J }]); return s === '0' ? '\\mathbf{0}' : s; };
+const linTex = (c, m) => joinTerms([{ c, s: '' }, { c: m, s: LAM }]);
+const kTex = c => (c.isZero() ? '0' : joinTerms([{ c, s: 'k' }]));
+function linVecTex(c1, m1, c2, m2) {
+  const parts = [];
+  for (const [c, m, u] of [[c1, m1, I], [c2, m2, J]]) {
+    if (c.isZero() && m.isZero()) continue;
+    if (m.isZero()) parts.push({ c, s: u });
+    else if (c.isZero()) parts.push({ c: m, s: LAM + u });
+    else parts.push({ raw: '(' + linTex(c, m) + ')' + u });
+  }
+  return parts.length ? joinTerms(parts) : '\\mathbf{0}';
+}
+function mulParen(c, inner) {
+  if (c.isOne()) return inner;
+  if (c.eq(-1)) return '-(' + inner + ')';
+  return c.tex() + '(' + inner + ')';
+}
+function lamParen(lam) { return lam.d === 1 ? '(' + lam.tex() + ')' : '\\left(' + lam.tex() + '\\right)'; }
+function subTex(c, m, lam) {
+  if (m.isZero()) return c.tex();
+  const a = m.abs(), body = (a.isOne() ? '' : a.tex()) + lamParen(lam);
+  if (c.isZero()) return (m.n < 0 ? '-' : '') + body;
+  return c.tex() + (m.n < 0 ? ' - ' : ' + ') + body;
+}
+function subVecTex(p, q, lam) {
+  const parts = [];
+  for (const [c, m, u] of [[p.x, q.x, I], [p.y, q.y, J]]) {
+    if (c.isZero() && m.isZero()) continue;
+    if (m.isZero()) parts.push({ c, s: u });
+    else parts.push({ raw: '\\left(' + subTex(c, m, lam) + '\\right)' + u });
+  }
+  return parts.length ? joinTerms(parts) : '\\mathbf{0}';
+}
+function fmtNum(x, dp = 2) {
+  if (!isFinite(x)) return '0';
+  const s = (+x.toFixed(dp)).toString();
+  return s === '-0' ? '0' : s;
+}
+function numVecTex(x, y) {
+  const fx = fmtNum(x), fy = fmtNum(y);
+  let out = '';
+  const add = (v, u) => {
+    if (v === '0') return;
+    const neg = v.startsWith('-'), a = neg ? v.slice(1) : v;
+    const body = (a === '1' ? '' : a) + u;
+    out += out === '' ? (neg ? '-' : '') + body : (neg ? ' - ' : ' + ') + body;
+  };
+  add(fx, I); add(fy, J);
+  return out || '\\mathbf{0}';
+}
+const escHtml = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const im = t => '\\(' + escHtml(t) + '\\)';
+const dm = t => '<div class="mblock">\\[' + escHtml(t) + '\\]</div>';
+
+/* ============================================================
+   Solver
+   ============================================================ */
+function solve(p, q, d) {
+  const A = d.y.mul(q.x).sub(d.x.mul(q.y));
+  const B = d.x.mul(p.y).sub(d.y.mul(p.x));
+  if (A.isZero()) return { type: B.isZero() ? 'all' : 'none', A, B };
+  const lam = B.div(A);
+  const r = { x: p.x.add(q.x.mul(lam)), y: p.y.add(q.y.mul(lam)) };
+  const k = !d.x.isZero() ? r.x.div(d.x) : r.y.div(d.y);
+  return { type: 'one', lam, r, k, A, B };
+}
+function caseOf(d) {
+  if (d.x.isZero()) return 'J';
+  if (d.y.isZero()) return 'I';
+  if (d.x.eq(d.y)) return 'EQ';
+  if (d.x.eq(d.y.neg())) return 'NEG';
+  return 'GEN';
+}
+/* The linear equation L = R in lambda (each side {c, m} meaning c + m*lambda) */
+function lambdaEquation(p, q, d) {
+  const cs = caseOf(d);
+  const lin1 = linTex(p.x, q.x), lin2 = linTex(p.y, q.y);
+  if (cs === 'J') return { cs, L: { c: p.x, m: q.x }, R: { c: F(0), m: F(0) }, show: [lin1 + ' = 0'] };
+  if (cs === 'I') return { cs, L: { c: p.y, m: q.y }, R: { c: F(0), m: F(0) }, show: [lin2 + ' = 0'] };
+  if (cs === 'EQ') return { cs, L: { c: p.x, m: q.x }, R: { c: p.y, m: q.y }, show: [lin1 + ' = ' + lin2] };
+  if (cs === 'NEG') {
+    const rhs = linTex(p.y.neg(), q.y.neg());
+    return { cs, L: { c: p.x, m: q.x }, R: { c: p.y.neg(), m: q.y.neg() }, show: [lin1 + ' = -(' + lin2 + ')', lin1 + ' = ' + rhs] };
+  }
+  const L = { c: d.y.mul(p.x), m: d.y.mul(q.x) }, Rr = { c: d.x.mul(p.y), m: d.x.mul(q.y) };
+  const show = ['\\frac{' + lin1 + '}{' + lin2 + '} = \\frac{' + d.x.tex() + '}{' + d.y.tex() + '}'];
+  const cross = mulParen(d.y, lin1) + ' = ' + mulParen(d.x, lin2);
+  const expanded = linTex(L.c, L.m) + ' = ' + linTex(Rr.c, Rr.m);
+  show.push(cross);
+  if (expanded !== cross) show.push(expanded);
+  return { cs, L, R: Rr, show };
+}
+
+/* ============================================================
+   Step-by-step solution builder
+   ============================================================ */
+function buildSteps(p, q, d, sol) {
+  const steps = [];
+  const lin1 = linTex(p.x, q.x), lin2 = linTex(p.y, q.y);
+  const sumTex = linVecTex(p.x, q.x, p.y, q.y);
+  const lqTex = (() => { const s = joinTerms([{ c: q.x, s: LAM + I }, { c: q.y, s: LAM + J }]); return s === '0' ? '\\mathbf{0}' : s; })();
+
+  steps.push({
+    title: 'Write down the vectors', focus: ['p', 'q', 'd'],
+    text: 'We want ' + im(R) + ' to be parallel to ' + im(D) + '. Parallel means “a scalar multiple of”.',
+    math: ['\\begin{aligned}' + P + ' &= ' + vecTex(p.x, p.y) + '\\\\ ' + Q + ' &= ' + vecTex(q.x, q.y) + '\\\\ ' + D + ' &= ' + vecTex(d.x, d.y) + '\\end{aligned}']
+  });
+  steps.push({
+    title: 'Multiply ' + im(Q) + ' by ' + im(LAM), focus: ['lq', 'q'],
+    text: 'Every component of ' + im(Q) + ' gets multiplied by ' + im(LAM) + '.',
+    math: [LQ + ' = \\lambda(' + vecTex(q.x, q.y) + ') = ' + lqTex]
+  });
+  steps.push({
+    title: 'Add ' + im(P) + ' and ' + im(LQ) + ', grouping ' + im(I) + ' and ' + im(J), focus: ['p', 'lq', 'r', 'locus'],
+    text: 'Collect the ' + im(I) + ' terms together and the ' + im(J) + ' terms together. As ' + im(LAM) + ' changes, the tip of this vector slides along the dotted path through the tip of ' + im(P) + '.',
+    math: ['\\begin{aligned}' + R + ' &= (' + vecTex(p.x, p.y) + ') + (' + lqTex + ')\\\\ &= ' + sumTex + '\\end{aligned}']
+  });
+
+  const cs = caseOf(d);
+  const why = {
+    J: im(D) + ' has no ' + im(I) + '-component, so any multiple ' + im('k' + D) + ' has no ' + im(I) + '-component either. The ' + im(I) + '-component of ' + im(R) + ' must be 0.',
+    I: im(D) + ' has no ' + im(J) + '-component, so the ' + im(J) + '-component of ' + im(R) + ' must be 0.',
+    EQ: im(D) + ' has equal ' + im(I) + ' and ' + im(J) + ' components, so both right-hand sides are the same. The ' + im(I) + ' and ' + im(J) + ' components of ' + im(R) + ' must be equal.',
+    NEG: im(D) + ' has components of equal size and opposite sign, so the components of ' + im(R) + ' must be equal and opposite.',
+    GEN: 'Both equations share the same ' + im('k') + '. Dividing one by the other cancels ' + im('k') + ' and leaves an equation in ' + im(LAM) + ' alone.'
+  }[cs];
+  steps.push({
+    title: 'Use the parallel condition', focus: ['r', 'dline', 'd'],
+    text: 'If ' + im(R) + ' is parallel to ' + im(D) + ', then ' + im(R + ' = k' + D) + ' for some scalar ' + im('k') + '. Compare components:',
+    math: [sumTex + ' = k(' + vecTex(d.x, d.y) + ')',
+      '\\begin{aligned}' + I + '\\text{:}\\quad ' + lin1 + ' &= ' + kTex(d.x) + '\\\\ ' + J + '\\text{:}\\quad ' + lin2 + ' &= ' + kTex(d.y) + '\\end{aligned}'],
+    after: why
+  });
+
+  const eq = lambdaEquation(p, q, d);
+  const formText = {
+    J: 'Set the ' + im(I) + '-component equal to zero.',
+    I: 'Set the ' + im(J) + '-component equal to zero.',
+    EQ: 'Set the two components equal to each other.',
+    NEG: 'Set one component equal to minus the other.',
+    GEN: 'Divide the ' + im(I) + ' equation by the ' + im(J) + ' equation, then cross-multiply.'
+  }[cs];
+  steps.push({ title: 'Form an equation in ' + im(LAM), focus: ['r', 'dline'], text: formText, math: [eq.show.length > 1 ? '\\begin{gathered}' + eq.show.join('\\\\ \\Rightarrow\\; ') + '\\end{gathered}' : eq.show[0]] });
+
+  const M = eq.L.m.sub(eq.R.m), Cc = eq.R.c.sub(eq.L.c);
+  if (M.isZero()) {
+    if (Cc.isZero()) {
+      steps.push({ title: 'Try to solve for ' + im(LAM), focus: ['locus', 'dline'], text: 'Everything cancels and we are left with a statement that is always true:', math: ['0 = 0'], after: 'So every value of ' + im(LAM) + ' works.' });
+      steps.push({ title: 'Why every ' + im(LAM) + ' works', focus: ['locus', 'dline', 'p', 'q'], text: 'Both ' + im(P) + ' and ' + im(Q) + ' are already parallel to ' + im(D) + '. On the graph the dotted path lies right on top of the direction line, so the tip of ' + im(R) + ' never leaves it.', math: [] });
+    } else {
+      steps.push({ title: 'Try to solve for ' + im(LAM), focus: ['locus', 'dline'], text: 'The ' + im(LAM) + ' terms cancel and leave an impossible statement:', math: ['0 = ' + Cc.tex()], after: 'So no value of ' + im(LAM) + ' works.' });
+      steps.push({ title: 'Why there is no answer', focus: ['locus', 'dline', 'q', 'd'], text: (q.x.isZero() && q.y.isZero() ? im(Q) + ' is the zero vector, so adding ' + im(LQ) + ' never changes anything, and ' + im(P) + ' itself is not parallel to ' + im(D) + '.' : im(Q) + ' is itself parallel to ' + im(D) + '. Adding multiples of ' + im(Q) + ' slides the tip along a path parallel to the direction line. Parallel lines never meet, so the tip never lands on the line of ' + im(D) + '.'), math: [] });
+    }
+    return steps;
+  }
+
+  const lam = sol.lam;
+  const l1 = [joinTerms([{ c: eq.L.m, s: LAM }, { c: eq.R.m.neg(), s: LAM }]), joinTerms([{ c: eq.R.c, s: '' }, { c: eq.L.c.neg(), s: '' }])];
+  const l2 = [joinTerms([{ c: M, s: LAM }]), Cc.tex()];
+  const rows = [l1];
+  if (l2.join('=') !== l1.join('=')) rows.push(l2);
+  if (!M.isOne()) rows.push([LAM, lam.tex()]);
+  const solveTex = '\\begin{aligned}' + rows.map((r, i) => (i ? '\\Rightarrow\\; ' : '') + r[0] + ' &= ' + r[1]).join('\\\\ ') + '\\end{aligned}';
+  steps.push({
+    title: 'Solve for ' + im(LAM), focus: ['sol'],
+    text: 'Collect the ' + im(LAM) + ' terms on one side and the numbers on the other.',
+    math: [solveTex, '\\boxed{\\lambda = ' + lam.tex() + '}']
+  });
+
+  const r = sol.r, k = sol.k;
+  let after;
+  if (r.x.isZero() && r.y.isZero()) after = 'This is the zero vector, which has no direction. It is a special case worth mentioning in an exam answer.';
+  else if (k.n > 0) after = 'That is ' + im(joinTerms([{ c: k, s: D }])) + ', a positive multiple of ' + im(D) + ', so it is parallel and points the same way.';
+  else after = 'That is ' + im(joinTerms([{ c: k, s: D }])) + ', a negative multiple of ' + im(D) + '. It points the opposite way, which still counts as parallel.';
+  const resTex = vecTex(r.x, r.y);
+  const lines = [R + ' &= ' + subVecTex(p, q, lam), '&= ' + resTex];
+  if (!(r.x.isZero() && r.y.isZero())) lines.push('&= ' + joinTerms([{ c: k, s: D }]));
+  const math = ['\\begin{aligned}' + lines.join('\\\\ ') + '\\end{aligned}'];
+  steps.push({ title: 'Substitute back and check', focus: ['r', 'dline', 'sol'], text: 'Put ' + im('\\lambda = ' + lam.tex()) + ' back into ' + im(R) + '.', math, after });
+  return steps;
+}
+
+/* ============================================================
+   "Why not parallel" analysis
+   ============================================================ */
+function whyAnalysis(u, d) {
+  const out = { parallel: false, ghost: null, gapAxis: null, html: '' };
+  const uz = u.x.isZero() && u.y.isZero();
+  let h = '';
+  if (uz) {
+    out.parallel = true;
+    h += '<div class="verdict ok">' + im('\\checkmark') + ' Special case</div><p>' + im(U + ' = \\mathbf{0}') + ' is the zero vector. It is ' + im('0' + D) + ', but it has no direction, so “parallel” doesn’t really apply.</p>';
+    out.html = h; return out;
+  }
+  if (!d.x.isZero() && !d.y.isZero()) {
+    const ki = u.x.div(d.x), kj = u.y.div(d.y);
+    h += '<p>Suppose ' + im(U + ' = k' + D) + '. Each component gives its own value of ' + im('k') + ':</p>';
+    h += '<div class="callout">' + dm('\\begin{aligned}' + I + '\\text{:}\\quad ' + u.x.tex() + ' &= ' + kTex(d.x) + ' &&\\Rightarrow\\; k = ' + ki.tex() + '\\\\ ' + J + '\\text{:}\\quad ' + u.y.tex() + ' &= ' + kTex(d.y) + ' &&\\Rightarrow\\; k = ' + kj.tex() + '\\end{aligned}') + '</div>';
+    if (ki.eq(kj)) {
+      out.parallel = true;
+      h += '<div class="verdict ok">' + im('\\checkmark') + ' Parallel</div><p>Both components agree, so ' + im(U + ' = ' + joinTerms([{ c: ki, s: D }])) + '.' + (ki.n < 0 ? ' The multiple is negative, so ' + im(U) + ' points the opposite way, but it is still parallel.' : '') + '</p>';
+    } else {
+      out.ghost = { k: ki }; out.gapAxis = 'y';
+      h += '<div class="verdict bad">' + im('\\times') + ' Not parallel</div><p>The ' + im(I) + '-components need ' + im('k = ' + ki.tex()) + ' but the ' + im(J) + '-components need ' + im('k = ' + kj.tex()) + '. One number can’t be both, so no scalar multiple of ' + im(D) + ' equals ' + im(U) + '.</p>';
+      h += '<p>On the graph, the faint purple arrow is ' + im(joinTerms([{ c: ki, s: D }])) + '. It matches the ' + im(I) + '-component of ' + im(U) + ', but then its ' + im(J) + '-component is forced:</p>';
+      h += '<div class="callout">' + dm(joinTerms([{ c: ki, s: D }]) + ' = ' + vecTex(ki.mul(d.x), ki.mul(d.y)) + ' \\neq ' + vecTex(u.x, u.y)) + '</div><p>The dashed orange gap is the mismatch. To close it you would have to stretch one component more than the other, and that changes the direction.</p>';
+    }
+  } else {
+    const zeroAxis = d.x.isZero() ? 'i' : 'j';
+    const other = zeroAxis === 'i' ? 'j' : 'i';
+    const uZeroComp = zeroAxis === 'i' ? u.x : u.y;
+    const uOther = zeroAxis === 'i' ? u.y : u.x;
+    const dOther = zeroAxis === 'i' ? d.y : d.x;
+    const k = uOther.div(dOther);
+    const Z = zeroAxis === 'i' ? I : J, O = other === 'i' ? I : J;
+    h += '<p>' + im(D + ' = ' + vecTex(d.x, d.y)) + ' has no ' + im(Z) + '-component, so every multiple ' + im('k' + D + ' = ' + joinTerms([{ c: dOther, s: 'k' + O }])) + ' has a ' + im(Z) + '-component of 0.</p>';
+    if (uZeroComp.isZero()) {
+      out.parallel = true;
+      h += '<div class="verdict ok">' + im('\\checkmark') + ' Parallel</div><p>' + im(U) + ' has no ' + im(Z) + '-component either, and ' + im(U + ' = ' + joinTerms([{ c: k, s: D }])) + '.</p>';
+    } else {
+      out.ghost = { k }; out.gapAxis = zeroAxis === 'i' ? 'x' : 'y';
+      h += '<div class="verdict bad">' + im('\\times') + ' Not parallel</div><p>' + im(U) + ' has ' + im(Z) + '-component ' + im(uZeroComp.tex()) + ', not 0. Whatever ' + im('k') + ' you pick, ' + im('k' + D) + ' can’t match it. The faint arrow ' + im(joinTerms([{ c: k, s: D }])) + ' gets the ' + im(O) + '-component right, and the dashed gap shows the ' + im(Z) + '-component it misses.</p>';
+    }
+  }
+  const ang = v => { let a = Math.atan2(v.y.val(), v.x.val()) * 180 / Math.PI; if (a < 0) a += 360; return a; };
+  const au = ang(u), ad = ang(d);
+  let diff = Math.abs(au - ad) % 180; diff = Math.min(diff, 180 - diff);
+  h += '<p>Another way to see it: measure each direction anticlockwise from ' + im(I) + '. Parallel vectors differ by ' + im('0^\\circ') + ' or ' + im('180^\\circ') + '.</p>';
+  h += '<div class="callout">' + dm('\\theta_{' + U + '} = ' + fmtNum(au, 1) + '^\\circ,\\qquad \\theta_{' + D + '} = ' + fmtNum(ad, 1) + '^\\circ') + dm('\\text{angle between } ' + U + ' \\text{ and the line of } ' + D + ' = ' + fmtNum(diff, 1) + '^\\circ') + '</div>';
+  out.html = h; out.angle = diff;
+  return out;
+}
+
+/* ============================================================
+   State
+   ============================================================ */
+const PRESETS = {
+  a: { p: [4, 3], q: [2, -6], d: [0, 1] },
+  b: { p: [4, 3], q: [2, -6], d: [1, 1] },
+  neg: { p: [-5, 1], q: [1, -2], d: [1, 1] },
+  none: { p: [4, 3], q: [2, 2], d: [1, 1] }
+};
+const v2 = (a) => ({ x: F(a[0]), y: F(a[1]) });
+const state = {
+  p: v2([4, 3]), q: v2([2, -6]), d: v2([0, 1]), u: v2([2, 9]),
+  lam: 0, follow: true, snap: true, showLocus: true, showLabels: true,
+  tab: 'sol', focus: null, preset: 'a', sol: null,
+  view: { cx: 0, cy: 0, s: 30 }, stepMode: 'all', revealed: 99, activeStep: -1
+};
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const num = v => ({ x: v.x.val(), y: v.y.val() });
+
+/* ============================================================
+   MathJax glue
+   ============================================================ */
+let mjReady = false;
+let mjChain = Promise.resolve();
+const texCache = new Map();
+function texNode(tex, display = false) {
+  if (!mjReady) { const s = document.createElement('span'); s.className = 'raw-tex'; s.textContent = tex; return s; }
+  const key = (display ? 'D:' : 'I:') + tex;
+  let n = texCache.get(key);
+  if (!n) {
+    try { n = MathJax.tex2svg(tex, { display }); }
+    catch (e) { n = document.createElement('span'); n.className = 'raw-tex'; n.textContent = tex; }
+    if (texCache.size > 600) texCache.clear();
+    texCache.set(key, n);
+  }
+  return n.cloneNode(true);
+}
+function setTex(el, tex) {
+  if (el.dataset.tex === tex && el.dataset.mj === String(mjReady)) return;
+  el.dataset.tex = tex; el.dataset.mj = String(mjReady);
+  el.replaceChildren(texNode(tex));
+}
+function setHTMLMath(el, html) {
+  html = html.replace(/\\\((?:(?!\\\)).)*?\\\)-component/g, m => '<span class="nw">' + m + '</span>');
+  if (mjReady) MathJax.typesetClear([el]);
+  el.innerHTML = html;
+  if (mjReady) mjChain = mjChain.then(() => MathJax.typesetPromise([el])).catch(err => console.warn(err));
+}
+
+/* ============================================================
+   DOM refs
+   ============================================================ */
+const $ = s => document.querySelector(s);
+const stage = $('#stage'), svg = $('#svg');
+const gGrid = $('#gGrid'), gLines = $('#gLines'), gVecs = $('#gVecs'), gHandles = $('#gHandles');
+const labelsLayer = $('#labels');
+const lamIn = $('#lam'), followIn = $('#follow');
+const inputs = { px: $('#px'), py: $('#py'), qx: $('#qx'), qy: $('#qy'), dx: $('#dx'), dy: $('#dy'), ux: $('#ux'), uy: $('#uy') };
+
+/* ============================================================
+   Coordinate system & graph rendering
+   ============================================================ */
+let W = 800, H = 600;
+const sx = x => W / 2 + (x - state.view.cx) * state.view.s;
+const sy = y => H / 2 - (y - state.view.cy) * state.view.s;
+const wx = X => state.view.cx + (X - W / 2) / state.view.s;
+const wy = Y => state.view.cy - (Y - H / 2) / state.view.s;
+
+function niceStep(minWorld) {
+  for (let e = -2; e <= 5; e++) for (const m of [1, 2, 5]) { const v = m * 10 ** e; if (v >= minWorld - 1e-12) return v; }
+  return 1e6;
+}
+function majorStep(minor, minWorld) {
+  for (const mult of [1, 2, 5, 10, 20, 50, 100]) {
+    const c = minor * mult;
+    const lead = c / 10 ** Math.floor(Math.log10(c) + 1e-9);
+    const nice = [1, 2, 5].some(v => Math.abs(lead - v) < 1e-6);
+    if (nice && c >= minWorld) return c;
+  }
+  return minor * 100;
+}
+const f2 = v => Math.round(v * 100) / 100;
+
+function arrow(x1, y1, x2, y2, cls, w = 2.5, opts = {}) {
+  const X1 = sx(x1), Y1 = sy(y1), X2 = sx(x2), Y2 = sy(y2);
+  const dx = X2 - X1, dy = Y2 - Y1, len = Math.hypot(dx, dy);
+  if (len < 1.5) return '';
+  const ux = dx / len, uy = dy / len;
+  const hl = Math.min(9 + w * 2.2, len * 0.45), hw = hl * 0.55;
+  const bx = X2 - ux * hl, by = Y2 - uy * hl;
+  const dash = opts.dash ? ` stroke-dasharray="${opts.dash}"` : '';
+  return `<g class="el vec ${cls}" data-k="${opts.key || ''}"><line x1="${f2(X1)}" y1="${f2(Y1)}" x2="${f2(bx + ux * 1)}" y2="${f2(by + uy * 1)}" stroke-width="${w}"${dash}/><path d="M${f2(X2)},${f2(Y2)} L${f2(bx - uy * hw)},${f2(by + ux * hw)} L${f2(bx + uy * hw)},${f2(by - ux * hw)} Z"/></g>`;
+}
+function infLine(px, py, dx, dy, cls, key) {
+  const len = Math.hypot(dx, dy);
+  if (len < 1e-9) return '';
+  const ux = dx / len, uy = dy / len;
+  const Rw = Math.hypot(W, H) / state.view.s + Math.hypot(px - state.view.cx, py - state.view.cy) + 1;
+  return `<line class="el ${cls}" data-k="${key}" x1="${f2(sx(px - ux * Rw))}" y1="${f2(sy(py - uy * Rw))}" x2="${f2(sx(px + ux * Rw))}" y2="${f2(sy(py + uy * Rw))}"/>`;
+}
+
+function dimSet() {
+  if (state.focus) return k => !state.focus.includes(k);
+  if (state.tab === 'why') return k => ['p', 'q', 'lq', 'locus', 'sol', 'r'].includes(k);
+  return () => false;
+}
+function currentParallel() {
+  const p = num(state.p), q = num(state.q), d = num(state.d), lam = state.lam;
+  const r = { x: p.x + q.x * lam, y: p.y + q.y * lam };
+  const sol = state.sol;
+  const rl = Math.hypot(r.x, r.y), dl = Math.hypot(d.x, d.y);
+  let exact = false;
+  if (sol && sol.type === 'one' && Math.abs(lam - sol.lam.val()) < 1e-9) exact = true;
+  if (sol && sol.type === 'all') exact = true;
+  let dev = 90;
+  if (rl > 1e-9 && dl > 1e-9) {
+    const cross = (d.x * r.y - d.y * r.x) / (rl * dl);
+    dev = Math.asin(Math.min(1, Math.abs(cross))) * 180 / Math.PI;
+    const dot = d.x * r.x + d.y * r.y;
+    if (dot < 0 && dev < 1e-9) dev = 0;
+  }
+  if (rl < 1e-9) dev = NaN;
+  return { r, exact: exact || (dev < 1e-7 && rl > 1e-9), dev, zero: rl < 1e-9 };
+}
+
+let labelList = [];
+function lblAt(key, tex, X, Y, cls, dimmed) { labelList.push({ key, tex, X, Y, cls, dim: dimmed }); }
+function midLabel(key, tex, x1, y1, x2, y2, cls, dimmed, side = 1, t = 0.55, off = 17) {
+  const X1 = sx(x1), Y1 = sy(y1), X2 = sx(x2), Y2 = sy(y2);
+  const dx = X2 - X1, dy = Y2 - Y1, len = Math.hypot(dx, dy);
+  if (len < 4) { lblAt(key, tex, X2 + 14, Y2 - 14, cls, dimmed); return; }
+  const nx = -dy / len * side, ny = dx / len * side;
+  lblAt(key, tex, X1 + dx * t + nx * off, Y1 + dy * t + ny * off, cls, dimmed);
+}
+function tipLabel(key, tex, x1, y1, x2, y2, cls, dimmed, off = 20) {
+  const X1 = sx(x1), Y1 = sy(y1), X2 = sx(x2), Y2 = sy(y2);
+  const dx = X2 - X1, dy = Y2 - Y1, len = Math.hypot(dx, dy) || 1;
+  lblAt(key, tex, X2 + dx / len * off, Y2 + dy / len * off, cls, dimmed);
+}
+
+let whyCache = null;
+function renderGraph() {
+  W = stage.clientWidth; H = stage.clientHeight;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const v = state.view, s = v.s;
+  labelList = [];
+
+  /* grid */
+  const x0 = wx(0), x1 = wx(W), y0 = wy(H), y1 = wy(0);
+  const minor = niceStep(18 / s), major = majorStep(minor, 56 / s);
+  let g = '';
+  const isMaj = x => Math.abs(x / major - Math.round(x / major)) < 1e-6;
+  for (let i = Math.ceil(x0 / minor); i <= Math.floor(x1 / minor); i++) { const x = i * minor, X = f2(sx(x)); g += `<line class="${isMaj(x) ? 'gmaj' : 'gmin'}" x1="${X}" y1="0" x2="${X}" y2="${H}"/>`; }
+  for (let i = Math.ceil(y0 / minor); i <= Math.floor(y1 / minor); i++) { const y = i * minor, Y = f2(sy(y)); g += `<line class="${isMaj(y) ? 'gmaj' : 'gmin'}" x1="0" y1="${Y}" x2="${W}" y2="${Y}"/>`; }
+  const OX = sx(0), OY = sy(0);
+  if (OX >= 0 && OX <= W) g += `<line class="axis" x1="${f2(OX)}" y1="0" x2="${f2(OX)}" y2="${H}"/>`;
+  if (OY >= 0 && OY <= H) g += `<line class="axis" x1="0" y1="${f2(OY)}" x2="${W}" y2="${f2(OY)}"/>`;
+  const tyAxis = Math.min(Math.max(OY + 15, 14), H - 6);
+  const txAxis = Math.min(Math.max(OX - 7, 26), W - 4);
+  const fmtT = x => (+x.toFixed(4)).toString();
+  for (let i = Math.ceil(x0 / major); i <= Math.floor(x1 / major); i++) { const x = i * major; if (Math.abs(x) < 1e-9) continue; g += `<text class="tick" x="${f2(sx(x))}" y="${f2(tyAxis)}" text-anchor="middle">${fmtT(x)}</text>`; }
+  for (let i = Math.ceil(y0 / major); i <= Math.floor(y1 / major); i++) { const y = i * major; if (Math.abs(y) < 1e-9) continue; g += `<text class="tick" x="${f2(txAxis)}" y="${f2(sy(y) + 4)}" text-anchor="end">${fmtT(y)}</text>`; }
+  gGrid.innerHTML = g;
+
+  const dim = dimSet();
+  const dc = k => (dim(k) ? ' dim' : '');
+  const p = num(state.p), q = num(state.q), d = num(state.d), lam = state.lam;
+  const lq = { x: q.x * lam, y: q.y * lam };
+  const cur = currentParallel(), r = cur.r;
+  const sol = state.sol;
+
+  /* infinite lines */
+  let L = '';
+  L += infLine(0, 0, d.x, d.y, 'dline' + dc('dline'), 'dline');
+  if (state.showLocus && Math.hypot(q.x, q.y) > 1e-9) {
+    L += infLine(p.x, p.y, q.x, q.y, 'locus' + dc('locus'), 'locus');
+    let dots = '';
+    for (let n = -60; n <= 60; n++) {
+      const X = sx(p.x + n * q.x), Y = sy(p.y + n * q.y);
+      if (X < -10 || X > W + 10 || Y < -10 || Y > H + 10) continue;
+      dots += `<circle cx="${f2(X)}" cy="${f2(Y)}" r="${n === 0 ? 0 : 2.6}"/>`;
+    }
+    L += `<g class="el locus-dot${dc('locus')}">${dots}</g>`;
+  }
+  gLines.innerHTML = L;
+
+  /* vectors */
+  let V = '';
+  V += arrow(0, 0, d.x, d.y, 'v-d' + dc('d'), 3, { key: 'd' });
+  V += arrow(0, 0, q.x, q.y, 'v-q' + dc('q'), 2.2, { key: 'q' });
+  V += arrow(0, 0, p.x, p.y, 'v-p' + dc('p'), 3, { key: 'p' });
+  V += arrow(p.x, p.y, p.x + lq.x, p.y + lq.y, 'v-q' + dc('lq'), 2.5, { key: 'lq', dash: '7 5' });
+  V += arrow(0, 0, r.x, r.y, 'v-r' + (cur.exact && !cur.zero ? ' parallel' : '') + dc('r'), 4.5, { key: 'r' });
+
+  if (sol && sol.type === 'one') {
+    const X = sx(sol.r.x.val()), Y = sy(sol.r.y.val());
+    V += `<circle class="el sol-ring${pulseRing ? ' pulse' : ''}${dc('sol')}" cx="${f2(X)}" cy="${f2(Y)}" r="9"/>`;
+    let nx = -(Y - OY), ny = X - OX; const nl = Math.hypot(nx, ny);
+    if (nl < 1) { nx = 1; ny = 0; } else { nx /= nl; ny /= nl; }
+    if (nx < 0) { nx = -nx; ny = -ny; }
+    labelList.push({ key: 'sol', tex: '\\lambda = ' + sol.lam.tex(), X: X + nx * 16 + 4, Y: Y + ny * 16, cls: 'lbl-r', dim: dim('sol'), anchor: 'l' });
+  }
+
+  /* why tab extras */
+  if (state.tab === 'why') {
+    const u = num(state.u);
+    const w = whyCache;
+    if (w && w.ghost) {
+      const k = w.ghost.k.val();
+      const gx = d.x * k, gy = d.y * k;
+      V += arrow(0, 0, gx, gy, 'v-ghost', 3, { key: 'ghost' });
+      V += `<line class="el gap" x1="${f2(sx(gx))}" y1="${f2(sy(gy))}" x2="${f2(sx(u.x))}" y2="${f2(sy(u.y))}"/>`;
+      tipLabel('ghost', joinTerms([{ c: w.ghost.k, s: '\\mathbf{d}' }]), u.x * 0, 0, gx, gy, 'lbl-d', false, 22);
+      const gmx = (sx(gx) + sx(u.x)) / 2, gmy = (sy(gy) + sy(u.y)) / 2;
+      lblAt('gap', '\\text{gap}', gmx + (w.gapAxis === 'y' ? 26 : 0), gmy + (w.gapAxis === 'x' ? -14 : 0), 'lbl-bad', false);
+    }
+    V += arrow(0, 0, u.x, u.y, 'v-u', 3.5, { key: 'u' });
+    /* angle arc between u and the line of d */
+    const ul = Math.hypot(u.x, u.y), dl = Math.hypot(d.x, d.y);
+    if (ul > 1e-9 && dl > 1e-9 && w && w.angle > 0.5) {
+      let ad = Math.atan2(d.y, d.x);
+      const au = Math.atan2(u.y, u.x);
+      if (Math.cos(au - ad) < 0) ad += Math.PI;
+      let delta = au - ad; while (delta > Math.PI) delta -= 2 * Math.PI; while (delta < -Math.PI) delta += 2 * Math.PI;
+      const rad = 38;
+      const A1x = OX + rad * Math.cos(ad), A1y = OY - rad * Math.sin(ad);
+      const A2x = OX + rad * Math.cos(au), A2y = OY - rad * Math.sin(au);
+      const sweep = delta > 0 ? 0 : 1;
+      V += `<path class="arc" d="M${f2(A1x)},${f2(A1y)} A${rad},${rad} 0 0 ${sweep} ${f2(A2x)},${f2(A2y)}"/>`;
+      const mid = ad + delta / 2;
+      lblAt('ang', fmtNum(w.angle, 1) + '^\\circ', OX + (rad + 22) * Math.cos(mid), OY - (rad + 22) * Math.sin(mid), 'lbl-muted', false);
+    }
+  }
+  V += `<circle class="origin" cx="${f2(OX)}" cy="${f2(OY)}" r="3"/>`;
+  gVecs.innerHTML = V;
+
+  /* handles */
+  let Hs = '';
+  for (const h of handleList()) Hs += `<circle class="handle h-${h.key}${hotHandle === h.key ? ' hot' : ''}" cx="${f2(sx(h.x))}" cy="${f2(sy(h.y))}" r="7"/>`;
+  gHandles.innerHTML = Hs;
+
+  /* labels */
+  if (state.showLabels) {
+    midLabel('p', '\\mathbf{p}', 0, 0, p.x, p.y, 'lbl-p', dim('p'), 1);
+    midLabel('q', '\\mathbf{q}', 0, 0, q.x, q.y, 'lbl-q', dim('q'), -1);
+    if (Math.abs(lam) > 1e-6) midLabel('lq', '\\lambda\\mathbf{q}', p.x, p.y, p.x + lq.x, p.y + lq.y, 'lbl-q', dim('lq'), 1);
+    if (!cur.zero) tipLabel('r', '\\mathbf{p}+\\lambda\\mathbf{q}', 0, 0, r.x, r.y, 'lbl-r', dim('r'), 34);
+    tipLabel('d', '\\mathbf{d}', 0, 0, d.x, d.y, 'lbl-d', dim('d'), 16);
+    if (state.tab === 'why') tipLabel('u', '\\mathbf{u}', 0, 0, num(state.u).x, num(state.u).y, 'lbl-u', false, 16);
+    if (OX > -20 && OX < W + 20 && OY > -20 && OY < H + 20) lblAt('O', 'O', OX - 12, OY + 13, 'lbl-muted', false);
+  } else {
+    labelList = labelList.filter(l => l.key === 'sol');
+  }
+  placeLabels();
+  renderReadout(cur);
+}
+
+const labelEls = new Map();
+function placeLabels() {
+  const used = new Set();
+  for (const L of labelList) {
+    let el = labelEls.get(L.key);
+    if (!el) { el = document.createElement('div'); labelsLayer.appendChild(el); labelEls.set(L.key, el); }
+    el.className = 'lbl ' + L.cls + (L.dim ? ' dim' : '');
+    setTex(el, L.tex);
+    el.style.transform = `translate(${f2(L.X)}px,${f2(L.Y)}px) translate(${L.anchor === 'l' ? '0' : '-50%'},-50%)`;
+    el.hidden = false;
+    used.add(L.key);
+  }
+  for (const [k, el] of labelEls) if (!used.has(k)) el.hidden = true;
+}
+
+function renderReadout(cur) {
+  const sol = state.sol, lam = state.lam;
+  let lamT;
+  if (sol && sol.type === 'one' && Math.abs(lam - sol.lam.val()) < 1e-9) lamT = sol.lam.d === 1 ? sol.lam.tex() : sol.lam.tex() + ' \\approx ' + fmtNum(sol.lam.val(), 3);
+  else lamT = fmtNum(lam);
+  setTex($('#roLam'), '\\lambda = ' + lamT);
+  let vecT;
+  if (sol && sol.type === 'one' && Math.abs(lam - sol.lam.val()) < 1e-9) vecT = vecTex(sol.r.x, sol.r.y);
+  else vecT = numVecTex(cur.r.x, cur.r.y);
+  const st = $('#roStatus');
+  if (state.tab === 'why' && whyCache) {
+    setTex($('#roVec'), U + ' = ' + vecTex(state.u.x, state.u.y));
+    if (whyCache.parallel) { st.className = 'row status ok'; setTex(st, '\\checkmark\\;' + U + '\\text{ is parallel to } \\mathbf{d}'); }
+    else { st.className = 'row status bad'; setTex(st, U + '\\text{ is not parallel: } ' + fmtNum(whyCache.angle, 1) + '^\\circ \\text{ off}'); }
+    setTex($('#roLam'), '\\text{Testing } ' + U + ' \\text{ against } ' + D);
+    setTex($('#lamOut'), '\\lambda = ' + lamT);
+    return;
+  }
+  setTex($('#roVec'), R + ' = ' + vecT);
+  if (cur.zero) { st.className = 'row status bad'; setTex(st, '\\text{zero vector: no direction}'); }
+  else if (cur.exact) { st.className = 'row status ok'; setTex(st, '\\checkmark\\;\\text{parallel to } \\mathbf{d}'); }
+  else { st.className = 'row status bad'; setTex(st, '\\text{not parallel: } ' + fmtNum(cur.dev, 1) + '^\\circ \\text{ off the line of } \\mathbf{d}'); }
+  setTex($('#lamOut'), '\\lambda = ' + lamT);
+  lamIn.setAttribute('aria-valuetext', 'lambda ' + fmtNum(lam));
+}
+
+let pulseRing = false;
+let rafPending = false;
+function requestRender() { if (rafPending) return; rafPending = true; requestAnimationFrame(() => { rafPending = false; renderGraph(); }); }
+
+/* ============================================================
+   Recompute & panels
+   ============================================================ */
+function lamRange() {
+  const sol = state.sol;
+  let R0 = 5;
+  if (sol && sol.type === 'one') R0 = Math.max(5, Math.ceil(Math.abs(sol.lam.val()) * 1.6 + 1));
+  return R0;
+}
+function syncSlider() {
+  const R0 = lamRange();
+  lamIn.min = String(-R0); lamIn.max = String(R0);
+  lamIn.value = String(state.lam);
+}
+function recompute() {
+  state.sol = solve(state.p, state.q, state.d);
+  if (state.follow && state.sol.type === 'one') state.lam = state.sol.lam.val();
+  syncSlider();
+}
+
+let stepsTimer = null;
+function scheduleMathPanels(delay = 0) {
+  clearTimeout(stepsTimer);
+  stepsTimer = setTimeout(renderMathPanels, delay);
+}
+let stepsData = [];
+function renderMathPanels() {
+  const { p, q, d } = state, sol = state.sol;
+  /* answer */
+  const ans = $('#answer');
+  let ah = '';
+  if (sol.type === 'one') {
+    ans.className = 'answer';
+    ah = '<div class="big">' + im('\\lambda = ' + sol.lam.tex() + (sol.lam.d !== 1 ? ' = ' + fmtNum(sol.lam.val(), 4) : '')) + '</div><div class="sub">' + im(R + ' = ' + vecTex(sol.r.x, sol.r.y) + (sol.r.x.isZero() && sol.r.y.isZero() ? '' : ' = ' + joinTerms([{ c: sol.k, s: D }]))) + '</div>';
+  } else if (sol.type === 'none') {
+    ans.className = 'answer warn';
+    ah = '<div class="big">No value of ' + im(LAM) + ' works</div><div class="sub">' + im(Q) + ' is parallel to ' + im(D) + ' but ' + im(P) + ' is not.</div>';
+  } else {
+    ans.className = 'answer';
+    ah = '<div class="big">Every value of ' + im(LAM) + ' works</div><div class="sub">' + im(P) + ' and ' + im(Q) + ' are both parallel to ' + im(D) + '.</div>';
+  }
+  setHTMLMath(ans, ah);
+
+  /* steps */
+  stepsData = buildSteps(p, q, d, sol);
+  renderSteps(false);
+
+  /* why tab */
+  renderWhy();
+}
+function renderSteps(animateLast) {
+  const el = $('#steps');
+  const showN = state.stepMode === 'all' ? stepsData.length : Math.min(state.revealed, stepsData.length);
+  let h = '';
+  stepsData.forEach((s, i) => {
+    const active = i === state.activeStep;
+    h += `<li class="step${active ? ' active' : ''}${animateLast && i === showN - 1 ? ' reveal' : ''}" data-i="${i}"${i >= showN ? ' hidden' : ''}>` +
+      `<button class="step-head" aria-pressed="${active}" aria-label="Step ${i + 1}, highlight on graph"><span class="n">${i + 1}</span><span class="t">${s.title}</span><span class="eye">${active ? 'Showing' : 'Show on graph'}</span></button>` +
+      `<div class="step-body"><p>${s.text}</p>${s.math.map(dm).join('')}${s.after ? '<p>' + s.after + '</p>' : ''}</div></li>`;
+  });
+  setHTMLMath(el, h);
+  const nb = $('#nextStep');
+  nb.hidden = !(state.stepMode === 'one' && showN < stepsData.length);
+}
+function setActiveStep(i) {
+  if (state.activeStep === i || i < 0) { state.activeStep = -1; state.focus = null; }
+  else { state.activeStep = i; state.focus = stepsData[i] ? stepsData[i].focus : null; }
+  document.querySelectorAll('#steps .step').forEach(li => {
+    const on = +li.dataset.i === state.activeStep;
+    li.classList.toggle('active', on);
+    const b = li.querySelector('.step-head'); b.setAttribute('aria-pressed', String(on));
+    li.querySelector('.eye').textContent = on ? 'Showing' : 'Show on graph';
+  });
+  requestRender();
+}
+function renderWhy() {
+  whyCache = whyAnalysis(state.u, state.d);
+  if (state.tab === 'why') setHTMLMath($('#whyOut'), whyCache.html);
+  requestRender();
+}
+
+/* ============================================================
+   Inputs
+   ============================================================ */
+function writeInputs() {
+  for (const k of ['p', 'q', 'd', 'u']) {
+    if (document.activeElement !== inputs[k + 'x']) inputs[k + 'x'].value = state[k].x.plain();
+    if (document.activeElement !== inputs[k + 'y']) inputs[k + 'y'].value = state[k].y.plain();
+    inputs[k + 'x'].classList.remove('invalid'); inputs[k + 'y'].classList.remove('invalid');
+  }
+}
+function readInputs(which) {
+  const errEl = $('#err');
+  let bad = [];
+  const vals = {};
+  for (const k of ['px', 'py', 'qx', 'qy', 'dx', 'dy', 'ux', 'uy']) {
+    const v = parseFr(inputs[k].value);
+    const ok = v && Math.abs(v.val()) <= 1000;
+    inputs[k].classList.toggle('invalid', !ok);
+    if (!ok) bad.push(k); else vals[k] = v;
+  }
+  const mainBad = bad.filter(k => k[0] !== 'u');
+  if (mainBad.length) { errEl.textContent = 'Use a number like 3, -1.5 or 2/3 in each box (between -1000 and 1000).'; }
+  else if (vals.dx.isZero() && vals.dy.isZero()) { errEl.textContent = 'The direction can’t be 0i + 0j: the zero vector has no direction.'; inputs.dx.classList.add('invalid'); inputs.dy.classList.add('invalid'); return; }
+  else errEl.textContent = '';
+  if (!mainBad.length) {
+    state.p = { x: vals.px, y: vals.py }; state.q = { x: vals.qx, y: vals.qy }; state.d = { x: vals.dx, y: vals.dy };
+  }
+  if (vals.ux && vals.uy) state.u = { x: vals.ux, y: vals.uy };
+  clearPresetMark();
+  recompute();
+  requestRender();
+  scheduleMathPanels(250);
+  maybeRefit();
+}
+function clearPresetMark() { document.querySelectorAll('#presets .chip').forEach(c => c.setAttribute('aria-pressed', 'false')); }
+let inputTimer = null;
+Object.values(inputs).forEach(el => el.addEventListener('input', () => { clearTimeout(inputTimer); inputTimer = setTimeout(readInputs, 120); }));
+Object.values(inputs).forEach(el => el.addEventListener('blur', () => { if (!el.classList.contains('invalid')) writeInputs(); }));
+
+function defaultU() {
+  const sol = state.sol;
+  if (sol && sol.type === 'one') {
+    const wrong = Math.round(sol.lam.val()) + 1;
+    const u = { x: state.p.x.add(state.q.x.mul(wrong)), y: state.p.y.add(state.q.y.mul(wrong)) };
+    const w = whyAnalysis(u, state.d);
+    if (!w.parallel) return u;
+  }
+  return { x: state.d.x.mul(3).add(1), y: state.d.y.mul(3) };
+}
+function loadVectors(p, q, d, presetKey) {
+  state.p = p; state.q = q; state.d = d;
+  state.follow = true; followIn.checked = true;
+  state.activeStep = -1; state.focus = null;
+  if (state.stepMode === 'one') state.revealed = 1;
+  recompute();
+  if (state.sol.type !== 'one') { state.lam = 1; syncSlider(); }
+  state.u = defaultU();
+  writeInputs();
+  $('#err').textContent = '';
+  document.querySelectorAll('#presets .chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.preset === presetKey)));
+  pulse();
+  fitView(true);
+  scheduleMathPanels(0);
+}
+function pulse() { pulseRing = !reduceMotion; requestRender(); setTimeout(() => { pulseRing = false; }, 1700); }
+
+document.querySelectorAll('#presets .chip').forEach(btn => btn.addEventListener('click', () => {
+  const k = btn.dataset.preset;
+  if (k === 'rand') { const g = genQuestion(); loadVectors(g.p, g.q, g.d, 'rand'); return; }
+  const pr = PRESETS[k];
+  loadVectors(v2(pr.p), v2(pr.q), v2(pr.d), k);
+}));
+
+/* lambda controls */
+lamIn.addEventListener('input', () => {
+  let v = +lamIn.value;
+  const sol = state.sol;
+  if (sol && sol.type === 'one') {
+    const target = sol.lam.val(), range = +lamIn.max - +lamIn.min;
+    if (Math.abs(v - target) < range * 0.012) v = target;
+  }
+  state.lam = v;
+  state.follow = sol && sol.type === 'one' && v === sol.lam.val();
+  followIn.checked = state.follow;
+  dismissHint();
+  requestRender();
+});
+followIn.addEventListener('change', () => {
+  state.follow = followIn.checked;
+  if (state.follow && state.sol.type === 'one') animateLam(state.sol.lam.val());
+});
+$('#solveBtn').addEventListener('click', () => {
+  const sol = state.sol;
+  if (sol.type === 'one') { animateLam(sol.lam.val(), () => { state.follow = true; followIn.checked = true; pulse(); }); }
+  else { pulse(); }
+  switchTab('sol');
+});
+let lamAnim = null;
+function animateLam(target, done) {
+  cancelAnimationFrame(lamAnim);
+  const from = state.lam, t0 = performance.now(), dur = reduceMotion ? 0 : Math.min(900, 300 + Math.abs(target - from) * 120);
+  const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+  const step = now => {
+    const t = dur ? Math.min(1, (now - t0) / dur) : 1;
+    state.lam = t >= 1 ? target : from + (target - from) * ease(t);
+    lamIn.value = String(state.lam);
+    renderGraph();
+    if (t < 1) lamAnim = requestAnimationFrame(step); else if (done) done();
+  };
+  lamAnim = requestAnimationFrame(step);
+}
+
+/* ============================================================
+   View: fit, zoom, pan
+   ============================================================ */
+function keyPoints() {
+  const pts = [[0, 0]];
+  const p = num(state.p), q = num(state.q), d = num(state.d);
+  pts.push([p.x, p.y], [q.x, q.y], [d.x, d.y]);
+  const cur = currentParallel(); pts.push([cur.r.x, cur.r.y]);
+  if (state.sol && state.sol.type === 'one') pts.push([state.sol.r.x.val(), state.sol.r.y.val()]);
+  if (state.tab === 'why') { const u = num(state.u); pts.push([u.x, u.y]); }
+  return pts;
+}
+function fitTarget() {
+  W = stage.clientWidth; H = stage.clientHeight;
+  const pts = keyPoints();
+  let minX = Math.min(...pts.map(p => p[0])), maxX = Math.max(...pts.map(p => p[0]));
+  let minY = Math.min(...pts.map(p => p[1])), maxY = Math.max(...pts.map(p => p[1]));
+  const spanX = Math.max(maxX - minX, 2), spanY = Math.max(maxY - minY, 2);
+  const narrow = W < 560;
+  const padL = 34, padR = narrow ? 56 : 80, padT = narrow ? 110 : 124, padB = narrow ? 120 : 116;
+  const s = Math.max(6, Math.min(140, Math.min((W - padL - padR) / spanX, (H - padT - padB) / spanY)));
+  const cxScreen = (padL + (W - padR)) / 2, cyScreen = (padT + (H - padB)) / 2;
+  const mx = (minX + maxX) / 2, my = (minY + maxY) / 2;
+  return { s, cx: mx - (cxScreen - W / 2) / s, cy: my + (cyScreen - H / 2) / s };
+}
+let viewAnim = null;
+function animateView(target) {
+  cancelAnimationFrame(viewAnim);
+  const from = { ...state.view }, t0 = performance.now(), dur = reduceMotion ? 0 : 450;
+  const ease = t => 1 - Math.pow(1 - t, 3);
+  const step = now => {
+    const t = dur ? Math.min(1, (now - t0) / dur) : 1, e = ease(t);
+    const ls = Math.log(from.s) + (Math.log(target.s) - Math.log(from.s)) * e;
+    state.view = { s: Math.exp(ls), cx: from.cx + (target.cx - from.cx) * e, cy: from.cy + (target.cy - from.cy) * e };
+    renderGraph();
+    if (t < 1) viewAnim = requestAnimationFrame(step);
+  };
+  viewAnim = requestAnimationFrame(step);
+}
+function fitView(animate) { const t = fitTarget(); if (animate) animateView(t); else { state.view = t; requestRender(); } }
+function maybeRefit() {
+  const pts = keyPoints();
+  const out = pts.some(([x, y]) => { const X = sx(x), Y = sy(y); return X < 10 || X > W - 10 || Y < 10 || Y > H - 10; });
+  if (out) fitView(true);
+}
+function zoomAt(factor, X, Y) {
+  const before = { x: wx(X), y: wy(Y) };
+  state.view.s = Math.max(4, Math.min(400, state.view.s * factor));
+  const after = { x: wx(X), y: wy(Y) };
+  state.view.cx += before.x - after.x; state.view.cy += before.y - after.y;
+  requestRender();
+}
+$('#zoomIn').addEventListener('click', () => zoomAt(1.25, W / 2, H / 2));
+$('#zoomOut').addEventListener('click', () => zoomAt(0.8, W / 2, H / 2));
+$('#fitBtn').addEventListener('click', () => fitView(true));
+function toggleBtn(id, key) {
+  const b = $(id);
+  b.addEventListener('click', () => { state[key] = !state[key]; b.setAttribute('aria-pressed', String(state[key])); requestRender(); });
+}
+toggleBtn('#optSnap', 'snap'); toggleBtn('#optLocus', 'showLocus'); toggleBtn('#optLabels', 'showLabels');
+
+/* ============================================================
+   Pointer interaction: drag handles, pan, pinch, wheel
+   ============================================================ */
+function handleList() {
+  const list = [
+    { key: 'd', ...num(state.d) },
+    { key: 'q', ...num(state.q) },
+    { key: 'p', ...num(state.p) }
+  ];
+  if (state.tab === 'why') list.push({ key: 'u', ...num(state.u) });
+  return list;
+}
+function hitHandle(X, Y, touch) {
+  const rad = touch ? 26 : 16;
+  let best = null, bd = rad;
+  for (const h of handleList()) { const dd = Math.hypot(sx(h.x) - X, sy(h.y) - Y); if (dd <= bd) { bd = dd; best = h.key; } }
+  return best;
+}
+let hotHandle = null;
+const pointers = new Map();
+let drag = null;
+function localXY(e) { const r = svg.getBoundingClientRect(); return { X: e.clientX - r.left, Y: e.clientY - r.top }; }
+svg.addEventListener('pointerdown', e => {
+  const { X, Y } = localXY(e);
+  svg.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, { X, Y });
+  cancelAnimationFrame(viewAnim);
+  if (pointers.size === 2) {
+    const [a, b] = [...pointers.values()];
+    drag = { type: 'pinch', dist: Math.hypot(a.X - b.X, a.Y - b.Y), s0: state.view.s, mid: { X: (a.X + b.X) / 2, Y: (a.Y + b.Y) / 2 } };
+    return;
+  }
+  const key = hitHandle(X, Y, e.pointerType !== 'mouse');
+  if (key) { drag = { type: 'handle', key }; hotHandle = key; dismissHint(); }
+  else drag = { type: 'pan', X, Y, cx: state.view.cx, cy: state.view.cy };
+  svg.classList.add('dragging');
+  requestRender();
+});
+svg.addEventListener('pointermove', e => {
+  const { X, Y } = localXY(e);
+  if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { X, Y });
+  if (!drag) {
+    const k = hitHandle(X, Y, false);
+    if (k !== hotHandle) { hotHandle = k; svg.classList.toggle('over-handle', !!k); requestRender(); }
+    return;
+  }
+  if (drag.type === 'pinch' && pointers.size >= 2) {
+    const [a, b] = [...pointers.values()];
+    const dist = Math.hypot(a.X - b.X, a.Y - b.Y);
+    const target = Math.max(4, Math.min(400, drag.s0 * dist / drag.dist));
+    zoomAt(target / state.view.s, drag.mid.X, drag.mid.Y);
+    return;
+  }
+  if (drag.type === 'pan') {
+    state.view.cx = drag.cx - (X - drag.X) / state.view.s;
+    state.view.cy = drag.cy + (Y - drag.Y) / state.view.s;
+    if (Math.abs(X - drag.X) + Math.abs(Y - drag.Y) > 4) dismissHint();
+    requestRender();
+    return;
+  }
+  if (drag.type === 'handle') {
+    const v = { x: frFromNum(wx(X), state.snap), y: frFromNum(wy(Y), state.snap) };
+    const k = drag.key;
+    if (k === 'd' && v.x.isZero() && v.y.isZero()) return;
+    if (state[k].x.eq(v.x) && state[k].y.eq(v.y)) return;
+    state[k] = v;
+    clearPresetMark();
+    if (k !== 'u') { recompute(); }
+    writeInputs();
+    if (k === 'u') { whyCache = whyAnalysis(state.u, state.d); }
+    requestRender();
+    scheduleMathPanels(140);
+  }
+});
+function endPointer(e) {
+  pointers.delete(e.pointerId);
+  if (drag && drag.type === 'pinch' && pointers.size === 1) { const [a] = [...pointers.values()]; drag = { type: 'pan', X: a.X, Y: a.Y, cx: state.view.cx, cy: state.view.cy }; return; }
+  if (pointers.size === 0) {
+    if (drag && drag.type === 'handle') scheduleMathPanels(0);
+    drag = null; svg.classList.remove('dragging');
+    if (e.pointerType !== 'mouse') hotHandle = null;
+    requestRender();
+  }
+}
+svg.addEventListener('pointerup', endPointer);
+svg.addEventListener('pointercancel', endPointer);
+svg.addEventListener('pointerleave', () => { if (!drag && hotHandle) { hotHandle = null; svg.classList.remove('over-handle'); requestRender(); } });
+svg.addEventListener('wheel', e => {
+  e.preventDefault();
+  const { X, Y } = localXY(e);
+  zoomAt(Math.exp(-e.deltaY * 0.0015), X, Y);
+}, { passive: false });
+
+let hintGone = false;
+function dismissHint() { if (hintGone) return; hintGone = true; $('#hint').classList.add('gone'); }
+
+new ResizeObserver(() => requestRender()).observe(stage);
+
+/* ============================================================
+   Tabs
+   ============================================================ */
+const tabs = [['sol', '#t-sol', '#p-sol'], ['why', '#t-why', '#p-why'], ['prac', '#t-prac', '#p-prac']];
+function switchTab(name, focusTab) {
+  state.tab = name;
+  for (const [n, t, p] of tabs) {
+    const on = n === name;
+    $(t).setAttribute('aria-selected', String(on)); $(t).tabIndex = on ? 0 : -1;
+    $(p).hidden = !on;
+    if (on && focusTab) $(t).focus();
+  }
+  if (name !== 'sol') { state.activeStep = -1; state.focus = null; document.querySelectorAll('#steps .step.active').forEach(li => li.classList.remove('active')); }
+  if (name === 'why') { renderWhy(); maybeRefit(); }
+  requestRender();
+}
+tabs.forEach(([n, t], i) => {
+  $(t).addEventListener('click', () => switchTab(n));
+  $(t).addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      const j = (i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length;
+      switchTab(tabs[j][0], true); e.preventDefault();
+    }
+  });
+});
+
+/* steps interactions */
+$('#steps').addEventListener('click', e => {
+  const head = e.target.closest('.step-head'); if (!head) return;
+  const li = head.closest('.step'); setActiveStep(+li.dataset.i);
+});
+$('#stepAll').addEventListener('click', () => { state.stepMode = 'all'; renderSteps(false); });
+$('#stepOne').addEventListener('click', () => { state.stepMode = 'one'; state.revealed = 1; state.activeStep = 0; state.focus = stepsData[0].focus; renderSteps(true); requestRender(); });
+$('#nextStep').addEventListener('click', () => {
+  state.revealed = Math.min(stepsData.length, state.revealed + 1);
+  state.activeStep = state.revealed - 1; state.focus = stepsData[state.activeStep].focus;
+  renderSteps(true); requestRender();
+  if (state.activeStep === stepsData.length - 1 && state.sol.type === 'one') animateLam(state.sol.lam.val(), () => { state.follow = true; followIn.checked = true; pulse(); });
+});
+
+/* why tab buttons */
+$('#uScale').addEventListener('click', () => { state.u = { x: state.d.x.mul(3), y: state.d.y.mul(3) }; writeInputs(); renderWhy(); maybeRefit(); });
+$('#uNudge').addEventListener('click', () => {
+  const d = state.d;
+  const bump = d.x.isZero() ? { x: F(1), y: F(0) } : { x: F(0), y: F(1) };
+  state.u = { x: state.u.x.add(bump.x), y: state.u.y.add(bump.y) };
+  writeInputs(); renderWhy(); maybeRefit();
+});
+$('#uWrong').addEventListener('click', () => {
+  const sol = state.sol;
+  let wl = sol.type === 'one' ? Math.round(sol.lam.val()) + 1 : 1;
+  if (sol.type === 'one' && sol.lam.eq(wl)) wl += 1;
+  state.u = { x: state.p.x.add(state.q.x.mul(wl)), y: state.p.y.add(state.q.y.mul(wl)) };
+  writeInputs(); renderWhy(); maybeRefit();
+  setHTMLMath($('#whyOut'), '<p>' + im(U) + ' is now ' + im(R) + ' with ' + im('\\lambda = ' + wl) + (sol.type === 'one' ? ' instead of ' + im('\\lambda = ' + sol.lam.tex()) : '') + '.</p>' + whyCache.html);
+});
+
+/* ============================================================
+   Practice
+   ============================================================ */
+const DIRS = [[0, 1], [1, 0], [1, 1], [1, -1], [2, 1], [1, 2], [3, -1], [1, 3], [2, -3], [-1, 2], [0, 1], [1, 1]];
+const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const rndNZ = (a, b) => { let v = 0; while (v === 0) v = rnd(a, b); return v; };
+function genQuestion() {
+  for (let t = 0; t < 2000; t++) {
+    const p = v2([rnd(-8, 8), rnd(-8, 8)]), q = v2([rndNZ(-7, 7), rndNZ(-7, 7)]);
+    const dd = DIRS[rnd(0, DIRS.length - 1)], d = v2(dd);
+    if (p.x.isZero() && p.y.isZero()) continue;
+    const s = solve(p, q, d);
+    if (s.type !== 'one' || s.lam.isZero() || s.lam.d > 8 || Math.abs(s.lam.val()) > 6) continue;
+    if (s.r.x.isZero() && s.r.y.isZero()) continue;
+    return { p, q, d, sol: s };
+  }
+  return { p: v2([4, 3]), q: v2([2, -6]), d: v2([1, 1]), sol: solve(v2([4, 3]), v2([2, -6]), v2([1, 1])) };
+}
+let prac = null, tries = 0, correct = 0, solvedThis = false;
+function newQuestion() {
+  prac = genQuestion(); solvedThis = false;
+  renderQuestion();
+  $('#ansIn').value = ''; $('#fb').textContent = ''; $('#fb').className = 'fb'; $('#hintOut').textContent = '';
+}
+function renderQuestion() {
+  const { p, q, d } = prac;
+  setHTMLMath($('#qcard'), 'Given that ' + im(P + ' = ' + vecTex(p.x, p.y)) + ' and ' + im(Q + ' = ' + vecTex(q.x, q.y)) + ', find ' + im(LAM) + ' if ' + im(R) + ' is parallel to the vector ' + im(vecTex(d.x, d.y)) + '.');
+}
+function updateScore() { $('#score').textContent = tries ? `${correct} correct out of ${tries} ${tries === 1 ? 'question' : 'questions'} checked this session.` : ''; }
+$('#checkBtn').addEventListener('click', () => {
+  const v = parseFr($('#ansIn').value);
+  const fb = $('#fb');
+  if (!v) { fb.className = 'fb bad'; fb.textContent = 'Type a number such as -2, 0.5 or -1/8.'; return; }
+  const lam = prac.sol.lam;
+  if (!solvedThis) tries++;
+  if (v.eq(lam)) {
+    if (!solvedThis) correct++; solvedThis = true;
+    fb.className = 'fb ok';
+    setHTMLMath(fb, im('\\checkmark') + ' Correct. With ' + im('\\lambda = ' + lam.tex()) + ', ' + im(R + ' = ' + vecTex(prac.sol.r.x, prac.sol.r.y)) + '.');
+  } else if (Math.abs(v.val() - lam.val()) < 0.0051) {
+    if (!solvedThis) correct++; solvedThis = true;
+    fb.className = 'fb ok';
+    setHTMLMath(fb, im('\\checkmark') + ' Correct to 2 decimal places. The exact answer is ' + im('\\lambda = ' + lam.tex()) + ', and exact values are safer in an exam.');
+  } else if (v.eq(lam.neg())) {
+    fb.className = 'fb bad';
+    setHTMLMath(fb, 'Right size, wrong sign. Check what happens to the signs when you move terms across the equals sign.');
+  } else {
+    fb.className = 'fb bad';
+    setHTMLMath(fb, 'Not yet. Group the ' + im(I) + ' and ' + im(J) + ' terms of ' + im(R) + ', then use the direction to write one equation in ' + im(LAM) + '. “Show a hint” gives you that equation.');
+  }
+  updateScore();
+});
+$('#ansIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('#checkBtn').click(); });
+$('#hintBtn').addEventListener('click', () => {
+  const { p, q, d } = prac;
+  const eq = lambdaEquation(p, q, d);
+  const fb = $('#hintOut');
+  setHTMLMath(fb, 'Hint: ' + im(R + ' = ' + linVecTex(p.x, q.x, p.y, q.y)) + '. Being parallel to ' + im(vecTex(d.x, d.y)) + ' gives ' + im(eq.show[eq.show.length - 1]) + '.');
+});
+$('#showSolBtn').addEventListener('click', () => {
+  const { p, q, d } = prac;
+  loadVectors(p, q, d, 'rand');
+  state.stepMode = 'one'; state.revealed = 1;
+  switchTab('sol');
+  setTimeout(() => { state.activeStep = 0; state.focus = stepsData[0] ? stepsData[0].focus : null; renderSteps(true); requestRender(); }, 10);
+  if (window.innerWidth <= 980) $('#stage').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth' });
+});
+$('#newQBtn').addEventListener('click', newQuestion);
+
+/* ============================================================
+   Boot
+   ============================================================ */
+function renderAll() {
+  writeInputs();
+  renderMathPanels();
+  requestRender();
+}
+window.__onMathReady = () => {
+  mjReady = true;
+  texCache.clear();
+  document.querySelectorAll('[data-tex]').forEach(el => { delete el.dataset.tex; });
+  const statics = [...document.querySelectorAll('[data-mj]')];
+  mjChain = mjChain.then(() => MathJax.typesetPromise(statics)).then(() => document.body.classList.remove('mj-wait')).catch(err => { console.warn(err); document.body.classList.remove('mj-wait'); });
+  renderAll();
+  if (prac) renderQuestion();
+};
+setTimeout(() => { if (!mjReady) document.body.classList.remove('mj-wait'); }, 8000);
+
+if (window.innerWidth < 560) $('#hint').textContent = 'Drag the dots at the arrow tips to change the vectors.';
+loadVectors(v2(PRESETS.a.p), v2(PRESETS.a.q), v2(PRESETS.a.d), 'a');
+newQuestion();
+fitView(false);
+if (window.MathJax && MathJax.startup && MathJax.startup.promise && MathJax.tex2svg) window.__onMathReady();
+})();
+</script>
+</body>
+</html>
